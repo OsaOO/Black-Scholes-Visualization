@@ -50,5 +50,21 @@ class BlackScholesCalculator:
         if self.sigma == 0:
             logger.warning("Zero Volatility entered - Note this may result inaccurate pricing!")
 
+    @property
+    def d1(self) -> float:
+        """Calculate d1 parameter"""
+        return (np.log(self.S / self.K) + 
+                (self.r - self.q + 0.5 *self.sigma**2) * self.T) / \
+                (self.sigma * np.sqrt(self.T))
+    
+    @property
+    def d2(self) -> float:
+        "calculates d2 parameter"
+        self.d1 - self.sigma * np.sqrt(self.T)
+
+    def price(self) -> Tuple[float, float]:
+        "Calculates call and out prices"
+    
+    
         
         
