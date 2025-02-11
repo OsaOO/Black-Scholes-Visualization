@@ -24,8 +24,8 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Load configuration
-config = configparser.ConfigParser()
-config.read('config.ini')
+#config = configparser.ConfigParser()
+#config.read('config.ini')
 
 class BlackScholesCalculator:
     """
@@ -60,11 +60,47 @@ class BlackScholesCalculator:
     @property
     def d2(self) -> float:
         "calculates d2 parameter"
-        self.d1 - self.sigma * np.sqrt(self.T)
+        return self.d1 - self.sigma * np.sqrt(self.T)
 
     def price(self) -> Tuple[float, float]:
         "Calculates call and out prices"
+        call = (self.S * np.exp(-self.q * self.T) * norm.cdf(self.d1) -
+                self.K * np.exp(-self.r *self.T) * norm.cdf(self.d2))
+        put = (self.K * np.exp(-self.r * self.T) * norm.cdf(-self.d2) - 
+               self.S * np.exp(-self.q * self.T) * norm.cdf(-self.d1))
+
+        return call, put
     
+    #### Calculates Greeks ###
+    def delta(self) -> Tuple[float, float]:
+        """Calculates call and put deltas"""
+        call_delta = np.exp(-self.q * self.T) * norm.cdf(self.d1)
+        put_delta = np.exp(-self.q * self.T) * (norm.cdf(self.d1) - 1)
+        return call_delta, put_delta
     
-        
+    def gamma(self) -> float:
+        """Calculate gamma (same for calls and puts)"""
+        return (np.exp(-self.q * self.T) * norm.pdf(self.d1)) / \
+               (self.S * self.sigma * np.sqrt(self.T))
+
+    def vega(self) -> float:
+        """Calculate vega (same for calls and puts)"""
+        return self.S * np.exp(-self.q * self.T) * norm.pdf(self.d1) * np.sqrt(self.T)
+
+# For Testing
+if __name__ == "__main__":
+    # Configuration
+    params = {
+        'S': 100,    # Spot price
+        'K': 100,    # Strike price
+        'T': 1.0,    # Time to expiration (years)
+        'r': 0.05,   # Risk-free rate
+        'sigma': 0.2 # Volatility
+    }
+
+    # Black-Scholes calculation
+    bs = BlackScholesCalculator(**params)
+    call_price, put_price = bs.price()
+    print(f"Black-Scholes Call Price: {call_price:.2f}")
+    print(f"Black-Scholes Put Price: {put_price:.2f}")
         
