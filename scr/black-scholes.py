@@ -86,6 +86,69 @@ class BlackScholesCalculator:
     def vega(self) -> float:
         """Calculate vega (same for calls and puts)"""
         return self.S * np.exp(-self.q * self.T) * norm.pdf(self.d1) * np.sqrt(self.T)
+    
+class MonteCarloPricer:
+    """
+    Monte Carlo option pricing with geometric Brownian motion
+    """
+
+
+class OptionVisualizer:
+    """
+    Visualization tools for option pricing results
+    """
+    
+    @staticmethod
+    def plot_price_sensitivity(calculator: Callable, param_range: np.ndarray, 
+                               param_name: str, option_type: str = 'call') -> None:
+        """
+        Plot option price sensitivity to a parameter
+        
+        Args:
+            calculator: Function that returns option price
+            param_range: Range of parameter values
+            param_name: Name of parameter for labeling
+            option_type: 'call' or 'put'
+        """
+        prices = np.zeros_like(param_range)
+        for i, val in enumerate(param_range):
+            prices[i] = calculator(val)
+        
+        plt.figure(figsize=(10, 6))
+        plt.plot(param_range, prices)
+        plt.title(f"Option Price Sensitivity to {param_name}")
+        plt.xlabel(param_name)
+        plt.ylabel(f"{option_type.capitalize()} Price")
+        plt.grid(True)
+        plt.show()
+    
+    def plto_monte_carlo_convergence(pricer: MonteCarloPricer, option_type: str,
+                                    max_paths: int = 10_000, step_size: int = 100) -> None:
+        """
+        Plot Monte Carlo price convergence
+        
+        Args:
+            pricer: MonteCarloPricer instance
+            option_type: 'call' or 'put'
+            max_paths: Maximum number of paths to simulate
+            step_size: Step size for path increments
+        """
+        path_counts = np.arange(step_size, max_paths + 1, step_size)
+        prices = np.zeros_like(path_counts, dtype=float)
+        
+        for i, n in enumerate(path_counts):
+            prices[i] = pricer.price_option(option_type, n_paths=n)
+        
+        plt.figure(figsize=(10, 6))
+        plt.plot(path_counts, prices)
+        #plt.axhline(y=bs_price, color='r', linestyle='--', 
+        #           label='Black-Scholes Price')
+        plt.title("Monte Carlo Price Convergence")
+        plt.xlabel("Number of Paths")
+        plt.ylabel("Option Price")
+        plt.legend()
+        plt.grid(True)
+        plt.show()
 
 # For Testing
 if __name__ == "__main__":
@@ -103,4 +166,15 @@ if __name__ == "__main__":
     call_price, put_price = bs.price()
     print(f"Black-Scholes Call Price: {call_price:.2f}")
     print(f"Black-Scholes Put Price: {put_price:.2f}")
+
+    # Visualizations
+    viz = OptionVisualizer()
+
+    # Plot price vs. volatility
+    def bs_vol_calculator(sigma):
+        return BlackScholesCalculator(S=100, K=105, T=1.0, r=0.05, sigma=sigma).price()[0]
+
+    volatilities = np.linspace(0.1, 0.5, 50)
+    viz.plot_price_sensitivity(bs_vol_calculator, volatilities, 'Volatility')
+    print("Here")
         
