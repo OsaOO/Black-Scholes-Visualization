@@ -9,6 +9,8 @@ To-Do:
     - 
 """
 
+import pandas as pd
+import seaborn as sns
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
@@ -102,7 +104,8 @@ class OptionVisualizer:
     @staticmethod
     def plot_price_sensitivity(calculator: BlackScholesCalculator, 
                               S_range: np.ndarray, 
-                              sigma_range: np.ndarray) -> None:
+                              sigma_range: np.ndarray,
+                              precision: int = 2) -> None:
         """
         Plot option price sensitivity to a parameter
         
@@ -110,6 +113,7 @@ class OptionVisualizer:
             calculator: Function that returns option price
             S_range: Range of stock price
             sigma_range: Range of Volatility values
+            precision: Number of decimal places for annotations
 
             param_range: Range of parameter values
             param_name: Name of parameter for labeling
@@ -117,50 +121,86 @@ class OptionVisualizer:
         """
 
         # Create grid matrices
-        S_grid, sigma_grid = np.meshgrid(S_range, sigma_range)
+        #S_grid, sigma_grid = np.meshgrid(S_range, sigma_range)
 
-         # Initialize price matrices
-        call_prices = np.zeros_like(S_grid)
-        put_prices = np.zeros_like(S_grid)
+        # Initialize price matrices
+        call_prices = np.zeros((len(sigma_range), len(S_range)))
+        put_prices = np.zeros((len(sigma_range), len(S_range)))
 
         # Calculate prices for each combination
-        for i in range(len(sigma_range)):
-            for j in range(len(S_range)):
-                # Create new calculator with current parameters
+        for i, sigma in enumerate(sigma_range):
+            for j, S in enumerate(S_range):
                 bs = BlackScholesCalculator(
-                    S=S_range[j],
+                    S=S,
                     K=calculator.K,
                     T=calculator.T,
                     r=calculator.r,
-                    sigma=sigma_range[i],
+                    sigma=sigma,
                     q=calculator.q
                 )
                 call, put = bs.price()
                 call_prices[i, j] = call
                 put_prices[i, j] = put
+
+        # Create DataFrames for heatmaps
+        call_df = pd.DataFrame(call_prices, 
+                             index=np.round(sigma_range, 2),  # y-axis labels
+                             columns=np.round(S_range, 2))    # x-axis labels
+
+        put_df = pd.DataFrame(put_prices,
+                            index=np.round(sigma_range, 2),
+                            columns=np.round(S_range, 2))
         
-        # Create custom colormap (red to green)
-        cmap = matplotlib.colors.LinearSegmentedColormap.from_list(
-            'rg', ["red", "gold", "green"], N=256
-        )
-
         # Create figure
-        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 8))
-        fig.suptitle('Option Price Sensitivity Heatmaps', fontsize=16)
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 8))
+        fig.suptitle('Black-Scholes Option Price Heatmaps', fontsize=16, y=1.02)
 
+        # Common heatmap parameters
+        heatmap_kwargs = {
+            'annot': True,
+            'fmt': f'.{precision}f',
+            'cmap': 'RdYlGn',
+            'linewidths': 0.5,
+            'linecolor': 'white',
+            'cbar': True,
+            'annot_kws': {'fontsize': 8}
+        }
+
+        # Plot call heatmap
+        sns.heatmap(call_df, ax=ax1, **heatmap_kwargs)
+        ax1.set_title('Call Option Prices', pad=20)
+        ax1.set_xlabel('Stock Price', labelpad=10)
+        ax1.set_ylabel('Volatility', labelpad=10)
+        ax1.invert_yaxis()  # Ensure volatility increases from bottom to top
+
+        """
         # Plot call heatmap
         call_plot = ax1.pcolormesh(S_grid, sigma_grid, call_prices, cmap=cmap)
         ax1.set_title('Call Options')
         ax1.set_xlabel('Stock Price')
         ax1.set_ylabel('Volatility')
         fig.colorbar(call_plot, ax=ax1)
+        """
 
+        # Plot put heatmap
+        sns_put = sns.heatmap(put_df, ax=ax2, **heatmap_kwargs)
+        ax2.set_title('Put Option Prices', pad=20)
+        ax2.set_xlabel('Stock Price', labelpad=10)
+        ax2.set_ylabel('Volatility', labelpad=10)
+        ax2.invert_yaxis()
+
+        """
         # Plot put heatmap
         put_plot = ax2.pcolormesh(S_grid, sigma_grid, put_prices, cmap=cmap)
         ax2.set_title('Put Options')
         ax2.set_xlabel('Stock Price')
         ax2.set_ylabel('Volatility')
         fig.colorbar(put_plot, ax=ax2)
+        """
+
+        # Adjust colorbar labels
+        ax1.collections[0].colorbar.set_label('Call Price', rotation=270, labelpad=20)
+        ax2.collections[0].colorbar.set_label('Put Price', rotation=270, labelpad=20)
 
         plt.tight_layout()
         plt.show()
