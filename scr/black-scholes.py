@@ -10,6 +10,7 @@ To-Do:
 """
 
 import numpy as np
+import matplotlib
 import matplotlib.pyplot as plt
 from scipy.stats import norm
 from typing import Tuple, Optional, Callable
@@ -99,16 +100,71 @@ class OptionVisualizer:
     """
     
     @staticmethod
-    def plot_price_sensitivity(calculator: Callable, param_range: np.ndarray, 
-                               param_name: str, option_type: str = 'call') -> None:
+    def plot_price_sensitivity(calculator: BlackScholesCalculator, 
+                              S_range: np.ndarray, 
+                              sigma_range: np.ndarray) -> None:
         """
         Plot option price sensitivity to a parameter
         
         Args:
             calculator: Function that returns option price
+            S_range: Range of stock price
+            sigma_range: Range of Volatility values
+
             param_range: Range of parameter values
             param_name: Name of parameter for labeling
             option_type: 'call' or 'put'
+        """
+
+        # Create grid matrices
+        S_grid, sigma_grid = np.meshgrid(S_range, sigma_range)
+
+         # Initialize price matrices
+        call_prices = np.zeros_like(S_grid)
+        put_prices = np.zeros_like(S_grid)
+
+        # Calculate prices for each combination
+        for i in range(len(sigma_range)):
+            for j in range(len(S_range)):
+                # Create new calculator with current parameters
+                bs = BlackScholesCalculator(
+                    S=S_range[j],
+                    K=calculator.K,
+                    T=calculator.T,
+                    r=calculator.r,
+                    sigma=sigma_range[i],
+                    q=calculator.q
+                )
+                call, put = bs.price()
+                call_prices[i, j] = call
+                put_prices[i, j] = put
+        
+        # Create custom colormap (red to green)
+        cmap = matplotlib.colors.LinearSegmentedColormap.from_list(
+            'rg', ["red", "gold", "green"], N=256
+        )
+
+        # Create figure
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(20, 8))
+        fig.suptitle('Option Price Sensitivity Heatmaps', fontsize=16)
+
+        # Plot call heatmap
+        call_plot = ax1.pcolormesh(S_grid, sigma_grid, call_prices, cmap=cmap)
+        ax1.set_title('Call Options')
+        ax1.set_xlabel('Stock Price')
+        ax1.set_ylabel('Volatility')
+        fig.colorbar(call_plot, ax=ax1)
+
+        # Plot put heatmap
+        put_plot = ax2.pcolormesh(S_grid, sigma_grid, put_prices, cmap=cmap)
+        ax2.set_title('Put Options')
+        ax2.set_xlabel('Stock Price')
+        ax2.set_ylabel('Volatility')
+        fig.colorbar(put_plot, ax=ax2)
+
+        plt.tight_layout()
+        plt.show()
+
         """
         prices = np.zeros_like(param_range)
         for i, val in enumerate(param_range):
@@ -121,6 +177,7 @@ class OptionVisualizer:
         plt.ylabel(f"{option_type.capitalize()} Price")
         plt.grid(True)
         plt.show()
+        """
     
     def plto_monte_carlo_convergence(pricer: MonteCarloPricer, option_type: str,
                                     max_paths: int = 10_000, step_size: int = 100) -> None:
@@ -173,8 +230,28 @@ if __name__ == "__main__":
     # Plot price vs. volatility
     def bs_vol_calculator(sigma):
         return BlackScholesCalculator(S=100, K=105, T=1.0, r=0.05, sigma=sigma).price()[0]
+    
+    # Create base calculator with default parameters
+    base_calculator = BlackScholesCalculator(
+        S=100,  # This will be overridden in ranges
+        K=100,
+        T=1,
+        r=0.05,
+        sigma=0.2,
+        q=0
+    )
 
-    volatilities = np.linspace(0.1, 0.5, 50)
-    viz.plot_price_sensitivity(bs_vol_calculator, volatilities, 'Volatility')
+    # Generate ranges
+    S_range = np.linspace(80, 120, 10)  # Stock prices e.g. from 80 to 120
+    sigma_range = np.linspace(0.1, 0.5, 10)  # Volatility e.g. from 10% to 50%
+
+    # Plot heatmaps
+    OptionVisualizer.plot_price_sensitivity(
+        calculator=base_calculator,
+        S_range=S_range,
+        sigma_range=sigma_range
+    )
+    #volatilities = np.linspace(0.1, 0.5, 50)
+    #viz.plot_price_sensitivity(bs_vol_calculator, volatilities, 'Volatility')
     print("Here")
         
