@@ -49,7 +49,7 @@ class BlackScholesCalculator:
     def validate_inputs(self) -> None:
         """Validates the inputs provided"""
         if any(val < 0 for val in [self.S, self.K, self.T, self.r, self.sigma, self.q]):
-            raise ValueError("Negative values are not allowed for Black Scholes parameters")
+            raise ValueError("Negative vualues are not allowed for Black Scholes parameters")
         if self.sigma == 0:
             logger.warning("Zero Volatility entered - Note this may result inaccurate pricing!")
 
@@ -105,6 +105,7 @@ class OptionVisualizer:
     def plot_price_sensitivity(calculator: BlackScholesCalculator, 
                               S_range: np.ndarray, 
                               sigma_range: np.ndarray,
+                              purchase_price: Optional[float] = None,
                               precision: int = 2) -> None:
         """
         Plot option price sensitivity to a parameter
@@ -114,14 +115,11 @@ class OptionVisualizer:
             S_range: Range of stock price
             sigma_range: Range of Volatility values
             precision: Number of decimal places for annotations
-
+            purchase_price: Optional purchase price for P&L calculation
             param_range: Range of parameter values
             param_name: Name of parameter for labeling
             option_type: 'call' or 'put'
         """
-
-        # Create grid matrices
-        #S_grid, sigma_grid = np.meshgrid(S_range, sigma_range)
 
         # Initialize price matrices
         call_prices = np.zeros((len(sigma_range), len(S_range)))
@@ -139,21 +137,32 @@ class OptionVisualizer:
                     q=calculator.q
                 )
                 call, put = bs.price()
-                call_prices[i, j] = call
-                put_prices[i, j] = put
+                
+                # Makes adjustment depending on if a purchase price is provided
+                if purchase_price is not None:
+                    call_prices[i, j] = call - purchase_price
+                    put_prices[i, j] = put - purchase_price
+                else:
+                    call_prices[i, j] = call
+                    put_prices[i, j] = put
 
         # Create DataFrames for heatmaps
         call_df = pd.DataFrame(call_prices, 
                              index=np.round(sigma_range, 2),  # y-axis labels
                              columns=np.round(S_range, 2))    # x-axis labels
-
         put_df = pd.DataFrame(put_prices,
                             index=np.round(sigma_range, 2),
                             columns=np.round(S_range, 2))
         
+        # Configure visualization parameters
+        is_pl = purchase_price is not None
+        title_suffix = "P&L" if is_pl else "Prices"
+        #fmt = f"+.{precision}f" if is_pl else f".{precision}f" # If want to change percisiioin for price & PnL
+        #cmap_center = 0 if is_pl else None
+        
         # Create figure
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 8))
-        fig.suptitle('Black-Scholes Option Price Heatmaps', fontsize=16, y=1.02)
+        fig.suptitle(f'Black-Scholes Option {title_suffix} Heatmaps', fontsize=4, y=1.02)
 
         # Common heatmap parameters
         heatmap_kwargs = {
@@ -168,56 +177,25 @@ class OptionVisualizer:
 
         # Plot call heatmap
         sns.heatmap(call_df, ax=ax1, **heatmap_kwargs)
-        ax1.set_title('Call Option Prices', pad=20)
+        ax1.set_title(f'Call Option {title_suffix}', pad=20)
         ax1.set_xlabel('Stock Price', labelpad=10)
         ax1.set_ylabel('Volatility', labelpad=10)
         ax1.invert_yaxis()  # Ensure volatility increases from bottom to top
 
-        """
-        # Plot call heatmap
-        call_plot = ax1.pcolormesh(S_grid, sigma_grid, call_prices, cmap=cmap)
-        ax1.set_title('Call Options')
-        ax1.set_xlabel('Stock Price')
-        ax1.set_ylabel('Volatility')
-        fig.colorbar(call_plot, ax=ax1)
-        """
-
         # Plot put heatmap
         sns_put = sns.heatmap(put_df, ax=ax2, **heatmap_kwargs)
-        ax2.set_title('Put Option Prices', pad=20)
+        ax2.set_title(f'Put Option {title_suffix}', pad=20)
         ax2.set_xlabel('Stock Price', labelpad=10)
         ax2.set_ylabel('Volatility', labelpad=10)
         ax2.invert_yaxis()
 
-        """
-        # Plot put heatmap
-        put_plot = ax2.pcolormesh(S_grid, sigma_grid, put_prices, cmap=cmap)
-        ax2.set_title('Put Options')
-        ax2.set_xlabel('Stock Price')
-        ax2.set_ylabel('Volatility')
-        fig.colorbar(put_plot, ax=ax2)
-        """
-
         # Adjust colorbar labels
-        ax1.collections[0].colorbar.set_label('Call Price', rotation=270, labelpad=20)
-        ax2.collections[0].colorbar.set_label('Put Price', rotation=270, labelpad=20)
+        ax1.collections[0].colorbar.set_label(f'{title_suffix}', rotation=270, labelpad=20)
+        ax2.collections[0].colorbar.set_label(f'{title_suffix}', rotation=270, labelpad=20)
 
         plt.tight_layout()
         plt.show()
 
-        """
-        prices = np.zeros_like(param_range)
-        for i, val in enumerate(param_range):
-            prices[i] = calculator(val)
-        
-        plt.figure(figsize=(10, 6))
-        plt.plot(param_range, prices)
-        plt.title(f"Option Price Sensitivity to {param_name}")
-        plt.xlabel(param_name)
-        plt.ylabel(f"{option_type.capitalize()} Price")
-        plt.grid(True)
-        plt.show()
-        """
     
     def plto_monte_carlo_convergence(pricer: MonteCarloPricer, option_type: str,
                                     max_paths: int = 10_000, step_size: int = 100) -> None:
@@ -257,6 +235,7 @@ if __name__ == "__main__":
         'r': 0.05,   # Risk-free rate
         'sigma': 0.2 # Volatility
     }
+    entryPrice = 3.25
 
     # Black-Scholes calculation
     bs = BlackScholesCalculator(**params)
@@ -289,7 +268,8 @@ if __name__ == "__main__":
     OptionVisualizer.plot_price_sensitivity(
         calculator=base_calculator,
         S_range=S_range,
-        sigma_range=sigma_range
+        sigma_range=sigma_range,
+        purchase_price=5.0
     )
     #volatilities = np.linspace(0.1, 0.5, 50)
     #viz.plot_price_sensitivity(bs_vol_calculator, volatilities, 'Volatility')
